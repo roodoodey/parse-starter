@@ -13,6 +13,8 @@ class ViewController: UIViewController, UITextFieldDelegate {
     
     var usernameTextField = SideImageTextField()
     var passwordTextField = SideImageTextField()
+    var currTextFieldFrame: CGRect?
+    var diffHeight: CGFloat?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,6 +35,7 @@ class ViewController: UIViewController, UITextFieldDelegate {
         usernameTextField.layer.borderWidth = (1.5)
         usernameTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         usernameTextField.textField.placeholder = "username"
+        usernameTextField.textField.delegate = self
         usernameTextField.textField.font = UIFont.openSansItalicWithSize(15.0)
         self.view.addSubview(usernameTextField)
         
@@ -40,6 +43,7 @@ class ViewController: UIViewController, UITextFieldDelegate {
         passwordTextField.layer.borderWidth = (1.5)
         passwordTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         passwordTextField.textField.placeholder = "********"
+        passwordTextField.textField.delegate = self
         passwordTextField.textField.font = UIFont.openSansItalicWithSize(15.0)
         passwordTextField.textField.secureTextEntry = true
         self.view.addSubview(passwordTextField)
@@ -65,7 +69,9 @@ class ViewController: UIViewController, UITextFieldDelegate {
         signupButton.addTarget(self, action: "signup", forControlEvents: UIControlEvents.TouchUpInside)
         self.view.addSubview(signupButton)
         
-        
+        // add the keyboard notifications
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillShow:", name: UIKeyboardWillShowNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillHide:", name: UIKeyboardWillHideNotification, object: nil)
         
     }
 
@@ -93,7 +99,7 @@ class ViewController: UIViewController, UITextFieldDelegate {
                 // The login failed. Check error to see why.
             }
         }
-            }
+    }
     
     func signup() {
         self.performSegueWithIdentifier("signupSegue", sender: self)
@@ -102,6 +108,72 @@ class ViewController: UIViewController, UITextFieldDelegate {
     func dismissKeyboard() {
         println("dismiss keyboard")
         self.view.endEditing(true)
+    }
+    // Mark text field delegate
+    func textFieldDidBeginEditing(textField: UITextField) {
+        currTextFieldFrame = textField.superview!.frame
+    }
+    
+    func textFieldShouldReturn(textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+    
+    // MARK: Keyboard notifications
+    func keyboardWillShow(notification: NSNotification) {
+        
+        println("keyboard will show")
+        
+        let userInfo = notification.userInfo
+        var keyboardHeight = (userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue)?.CGRectValue().size.height
+        var keyboardAnimationTime = (userInfo?[UIKeyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue
+        
+        if keyboardHeight != nil && currTextFieldFrame != nil {
+
+            var height =  CGRectGetMaxY(currTextFieldFrame!)
+            var absoluteKeyboardHeight = CGRectGetHeight(self.view.frame) - keyboardHeight!
+
+            if height > absoluteKeyboardHeight {
+                
+                diffHeight = height - absoluteKeyboardHeight
+                
+                
+                UIView.animateWithDuration(keyboardAnimationTime!, animations: {
+                    var passFrame = self.passwordTextField.frame
+                    passFrame.origin.y -= self.diffHeight!
+                    self.passwordTextField.frame = passFrame
+                    
+                    var loginFrame = self.usernameTextField.frame
+                    loginFrame.origin.y -= self.diffHeight!
+                    self.usernameTextField.frame = loginFrame
+                    
+                    }, completion: { (succeeded: Bool) -> Void in
+                    
+                })
+            } else {
+                diffHeight = nil
+            }
+            
+        }
+    }
+    
+    func keyboardWillHide(notification: NSNotification) {
+        
+        println("keyboard will hide")
+        
+        if diffHeight != nil {
+            
+            println("keyboard animation")
+            
+            UIView.animateWithDuration(0.3, animations: {
+                self.passwordTextField.frame.origin.y += self.diffHeight!
+                self.usernameTextField.frame.origin.y += self.diffHeight!
+                }, completion: { (succeeded: Bool) -> Void in
+                    
+            })
+            
+        }
+        
     }
 
 

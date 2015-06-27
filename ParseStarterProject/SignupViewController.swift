@@ -9,7 +9,7 @@
 import UIKit
 import Parse
 
-class SignupViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+class SignupViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UITextFieldDelegate {
     
     let firstNameTextField = SideImageTextField()
     let lastNameTextField = SideImageTextField()
@@ -18,9 +18,15 @@ class SignupViewController: UIViewController, UIImagePickerControllerDelegate, U
     let confirmPasswordTextField = SideImageTextField()
     let imagePicker = UIImagePickerController()
     let profilePictureImageView = UIImageView()
+    var scrollView: UIScrollView!
+    var currTextFieldFrame: CGRect?
+    var diffHeight: CGFloat?
     
     override func viewDidLoad() {
         self.view.backgroundColor = UIColor.flatTealColor()
+        
+        currTextFieldFrame = nil
+        diffHeight = nil
         
         imagePicker.delegate = self
         imagePicker.sourceType = UIImagePickerControllerSourceType.SavedPhotosAlbum
@@ -46,7 +52,7 @@ class SignupViewController: UIViewController, UIImagePickerControllerDelegate, U
         labelBottomBorder.backgroundColor = UIColor.flatWhiteColor()
         self.view.addSubview(labelBottomBorder)
         
-        let scrollView = UIScrollView(frame: CGRectMake(0, 64, CGRectGetWidth(self.view.frame), CGRectGetHeight(self.view.frame) - 64))
+        scrollView = UIScrollView(frame: CGRectMake(0, 64, CGRectGetWidth(self.view.frame), CGRectGetHeight(self.view.frame) - 64))
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
         
@@ -70,30 +76,35 @@ class SignupViewController: UIViewController, UIImagePickerControllerDelegate, U
         
         firstNameTextField.frame = CGRectMake(CGRectGetMidX(self.view.frame) - 110, CGRectGetMaxY(profilePictureImageView.frame) + 20, 220, 40)
         firstNameTextField.textField.placeholder = "first name"
+        firstNameTextField.textField.delegate = self
         firstNameTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         firstNameTextField.layer.borderWidth = (1.5)
         scrollView.addSubview(firstNameTextField)
         
         lastNameTextField.frame = CGRectMake(CGRectGetMidX(self.view.frame) - 110, CGRectGetMaxY(firstNameTextField.frame) + 20, 220, 40)
         lastNameTextField.textField.placeholder = "second name"
+        lastNameTextField.textField.delegate = self
         lastNameTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         lastNameTextField.layer.borderWidth = (1.5)
         scrollView.addSubview(lastNameTextField)
         
         emailTextField.frame = CGRectMake(CGRectGetMidX(self.view.frame) - 110, CGRectGetMaxY(lastNameTextField.frame) + 20, 220, 40)
         emailTextField.textField.placeholder = "email"
+        emailTextField.textField.delegate = self
         emailTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         emailTextField.layer.borderWidth = (1.5)
         scrollView.addSubview(emailTextField)
         
         passwordTextField.frame = CGRectMake(CGRectGetMidX(self.view.frame) - 110, CGRectGetMaxY(emailTextField.frame) + 20, 220, 40)
         passwordTextField.textField.placeholder = "password"
+        passwordTextField.textField.delegate = self
         passwordTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         passwordTextField.layer.borderWidth = (1.5)
         scrollView.addSubview(passwordTextField)
         
         confirmPasswordTextField.frame = CGRectMake(CGRectGetMidX(self.view.frame) - 110, CGRectGetMaxY(passwordTextField.frame) + 20, 220, 40)
         confirmPasswordTextField.textField.placeholder = "confirm password"
+        confirmPasswordTextField.textField.delegate = self
         confirmPasswordTextField.layer.borderColor = UIColor.flatTealColorDark().CGColor
         confirmPasswordTextField.layer.borderWidth = (1.5)
         scrollView.addSubview(confirmPasswordTextField)
@@ -109,6 +120,14 @@ class SignupViewController: UIViewController, UIImagePickerControllerDelegate, U
         
         scrollView.contentSize = CGSizeMake(CGRectGetWidth(self.view.frame), CGRectGetMaxY(signupButton.frame) + 50)
         
+        // add the keyboard notifications
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillShow:", name: UIKeyboardWillShowNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillHide:", name: UIKeyboardWillHideNotification, object: nil)
+        
+    }
+    
+    override func viewWillDisappear(animated: Bool) {
+        NSNotificationCenter.defaultCenter().removeObserver(self)
     }
     
     func dismissKeyboard() {
@@ -118,6 +137,7 @@ class SignupViewController: UIViewController, UIImagePickerControllerDelegate, U
     func signup() {
         
         if passwordTextField.textField.text == confirmPasswordTextField.textField.text {
+            
             let newUser = PFUser()
             newUser.username = emailTextField.textField.text
             newUser.email = emailTextField.textField.text
@@ -230,6 +250,54 @@ class SignupViewController: UIViewController, UIImagePickerControllerDelegate, U
         self.dismissViewControllerAnimated(true, completion: {
             
         })
+    }
+    
+    // MARK: Text field delegate
+    
+    func textFieldDidBeginEditing(textField: UITextField) {
+        currTextFieldFrame = textField.superview!.frame
+    }
+    
+    func textFieldShouldReturn(textField: UITextField) -> Bool {
+        textField.resignFirstResponder()
+        return true
+    }
+    
+    
+    // MARK: Keyboard Notifications
+    
+    
+    func keyboardWillShow(notification: NSNotification) {
+        
+        
+        let userInfo = notification.userInfo
+        var keyboardHeight = (userInfo?[UIKeyboardFrameEndUserInfoKey] as? NSValue)?.CGRectValue().size.height
+        var keyboardAnimationTime = (userInfo?[UIKeyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue
+        
+        if keyboardHeight != nil && currTextFieldFrame != nil {
+
+            var height = (CGRectGetMaxY(currTextFieldFrame!) + 64) - scrollView.contentOffset.y
+            keyboardHeight = CGRectGetHeight(self.view.frame) - keyboardHeight!
+
+            if height > keyboardHeight {
+                diffHeight = height - keyboardHeight!
+                
+                UIView.animateWithDuration(keyboardAnimationTime!, animations: {
+                    self.scrollView.setContentOffset(CGPointMake(self.scrollView.contentOffset.x, self.scrollView.contentOffset.y + self.diffHeight!), animated: false)
+                    }, completion: {
+                        (succeeded: Bool) -> Void in
+                        
+                })
+            }
+            
+        }
+    }
+    
+    func keyboardWillHide(notification: NSNotification) {
+
+        if diffHeight != nil {
+            self.scrollView.setContentOffset(CGPointMake(self.scrollView.contentOffset.x, self.scrollView.contentOffset.y - diffHeight!), animated: true)
+        }
     }
     
     
